@@ -6,7 +6,6 @@ from pygame import mixer
 
 # Initialize Pygame
 pygame.init()
-mixer.init()
 
 # Game Constants
 SCREEN_WIDTH = 1100
@@ -17,27 +16,57 @@ JUMP_HEIGHT = -12
 INITIAL_SPEED = 10
 MAX_SPEED = 20
 
+# Image target sizes
+DINO_SIZE = (60, 60)
+CACTUS_SIZE = (40, 60)
+BIRD_SIZE = (50, 30)
+CLOUD_SIZE = (100, 40)
+
 # Colors
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GREY = (128, 128, 128)
+RED = (255, 0, 0)
 
 # Initialize Screen
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 pygame.display.set_caption("VIP Dino Game")
 clock = pygame.time.Clock()
 
-# Load Assets
-dino_run = [pygame.image.load(f"dino_run_{i}.png") for i in range(1, 3)]  # 2 running frames
-dino_jump = pygame.image.load("dino_jump.png")
-cactus_img = pygame.image.load("cactus.png")
-bird_img = pygame.image.load("bird.png")  # New bird obstacle
-cloud_img = pygame.image.load("cloud.png")
+# Sound handling
+SOUND_ENABLED = True
+try:
+    mixer.init()
+    jump_sound = mixer.Sound("jump.wav") if os.path.exists("jump.wav") else None
+    collision_sound = mixer.Sound("collision.wav") if os.path.exists("collision.wav") else None
+    if os.path.exists("bg_music.mp3"):
+        mixer.music.load("bg_music.mp3")
+    else:
+        mixer.music = None
+except:
+    SOUND_ENABLED = False
 
-# Load Sounds
-jump_sound = mixer.Sound("jump.wav")
-collision_sound = mixer.Sound("collision.wav")
-mixer.music.load("bg_music.mp3")
+
+def load_image(path, size):
+    try:
+        image = pygame.image.load(path)
+        return pygame.transform.scale(image, size)
+    except Exception as e:
+        print(f"Error loading image {path}: {e}")
+        # Create placeholder rectangle if image not found
+        surf = pygame.Surface(size)
+        surf.fill(RED)
+        return surf
+
+
+# Load Assets with auto-resizing
+dino_run = [
+    load_image(f"dino_run_{i}.png", DINO_SIZE) for i in range(1, 3)
+]
+dino_jump = load_image("dino_jump.png", DINO_SIZE)
+cactus_img = load_image("cactus.png", CACTUS_SIZE)
+bird_img = load_image("bird.png", BIRD_SIZE)
+cloud_img = load_image("cloud.png", CLOUD_SIZE)
 
 # High Score System
 HIGH_SCORE_FILE = "highscore.txt"
@@ -73,7 +102,8 @@ class Dinosaur:
         if not self.jumped:
             self.vel_y = JUMP_HEIGHT
             self.jumped = True
-            jump_sound.play()
+            if SOUND_ENABLED and jump_sound:
+                jump_sound.play()
 
     def update(self):
         # Movement
@@ -168,7 +198,9 @@ def main():
     score = 0
     high_score = load_high_score()
     game_speed = INITIAL_SPEED
-    mixer.music.play(-1)
+
+    if SOUND_ENABLED and mixer.music:
+        mixer.music.play(-1)
 
     running = True
     game_active = True
@@ -185,7 +217,8 @@ def main():
                     if game_active:
                         dino.jump()
                     else:
-                        mixer.music.play(-1)
+                        if SOUND_ENABLED and mixer.music:
+                            mixer.music.play(-1)
                         main()
 
         if game_active:
@@ -221,8 +254,10 @@ def main():
             # Collision detection
             for obstacle in obstacles:
                 if dino.rect.colliderect(obstacle.rect):
-                    collision_sound.play()
-                    mixer.music.stop()
+                    if SOUND_ENABLED and collision_sound:
+                        collision_sound.play()
+                    if SOUND_ENABLED and mixer.music:
+                        mixer.music.stop()
                     if score > high_score:
                         high_score = score
                         save_high_score(high_score)
@@ -255,7 +290,8 @@ def main():
         clock.tick(FPS)
 
     pygame.quit()
-    mixer.quit()
+    if SOUND_ENABLED:
+        mixer.quit()
 
 
 if __name__ == "__main__":
